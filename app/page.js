@@ -40,7 +40,7 @@ export default function Home() {
       <Header />
 
       <main className="flex-1 pt-14 sm:pt-16">
-        <section className="relative overflow-hidden">
+        <section className="relative overflow-hidden bg-hero-gradient">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36">
             <div className="text-center max-w-2xl mx-auto">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1] mb-5 sm:mb-6">
@@ -69,7 +69,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-12 sm:py-16 border-t border-border">
+        <section className="py-12 sm:py-16 border-t border-border bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
               {[

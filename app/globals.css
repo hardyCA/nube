@@ -89,6 +89,18 @@ input:focus, textarea:focus, select:focus {
   animation: scaleIn 0.2s ease-out forwards;
 }
 
+.bg-hero-gradient {
+  background: linear-gradient(
+    180deg,
+    #D9F0FA 0%,
+    #E8F4FC 15%,
+    #F0F7FD 30%,
+    #F7FBFE 50%,
+    #FDFEFF 70%,
+    #FFFFFF 100%
+  );
+}
+
 @media (max-width: 640px) {
   input, select, textarea {
     font-size: 16px;

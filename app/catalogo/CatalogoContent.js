@@ -128,7 +128,7 @@ export default function CatalogoContent() {
       <Header />
 
       <main className="flex-1 pt-14 sm:pt-16">
-        <div className="bg-white border-b border-border">
+        <div className="bg-hero-gradient border-b border-border/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Catálogo</h1>
             <p className="text-sm sm:text-base text-muted mt-1">Explora nuestra selección de productos</p>
