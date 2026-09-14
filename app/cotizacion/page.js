@@ -12,7 +12,7 @@ import { generarMensajeWhatsApp, enviarWhatsApp, formatearMoneda } from '@/lib/u
 
 export default function CotizacionPage() {
   const { items, total, actualizarCantidad, eliminarProducto, limpiarCarrito, cargando } = useCarrito()
-  const [config, setConfig] = useState({ whatsapp_number: '59170000000', moneda: 'Bs' })
+  const [config, setConfig] = useState({ whatsapp_number: '59170000000', moneda: 'Bs', whatsapp_message: '' })
   const [eliminandoId, setEliminandoId] = useState(null)
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function CotizacionPage() {
       const { data } = await supabase
         .from('configuracion')
         .select('id, valor')
-        .in('id', ['whatsapp_number', 'moneda'])
+        .in('id', ['whatsapp_number', 'moneda', 'whatsapp_message'])
 
       if (data) {
         const newConfig = {}

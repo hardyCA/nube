@@ -214,7 +214,8 @@ CREATE POLICY "admin_delete_storage" ON storage.objects
 INSERT INTO configuracion (id, valor, descripcion) VALUES
   ('whatsapp_number', '"59170000000"', 'Número de WhatsApp para cotizaciones'),
   ('moneda', '"Bs"', 'Símbolo de moneda'),
-  ('nombre_tienda', '"NUBE"', 'Nombre de la tienda')
+  ('nombre_tienda', '"NUBE"', 'Nombre de la tienda'),
+  ('whatsapp_message', '"Hola, quiero solicitar una cotización:\\n\\n{productos}\\nTotal estimado: {total}\\n\\nQuedo atento/a."', 'Mensaje de WhatsApp para cotizaciones')
 ON CONFLICT (id) DO NOTHING;
 
 -- Categorías de ejemplo

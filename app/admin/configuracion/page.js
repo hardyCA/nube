@@ -11,6 +11,7 @@ export default function ConfiguracionPage() {
     whatsapp_number: '',
     moneda: '',
     nombre_tienda: '',
+    whatsapp_message: '',
   })
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -54,6 +55,7 @@ export default function ConfiguracionPage() {
       { id: 'whatsapp_number', valor: JSON.stringify(config.whatsapp_number), descripcion: 'Número de WhatsApp para cotizaciones' },
       { id: 'moneda', valor: JSON.stringify(config.moneda), descripcion: 'Símbolo de moneda' },
       { id: 'nombre_tienda', valor: JSON.stringify(config.nombre_tienda), descripcion: 'Nombre de la tienda' },
+      { id: 'whatsapp_message', valor: JSON.stringify(config.whatsapp_message || 'Hola, quiero solicitar una cotización:\n\n{productos}\nTotal estimado: {total}\n\nQuedo atento/a.'), descripcion: 'Mensaje de WhatsApp para cotizaciones' },
     ]
 
     for (const item of updates) {
@@ -112,6 +114,29 @@ export default function ConfiguracionPage() {
             placeholder="59170000000"
           />
           <p className="text-xs text-muted">Número con código de país para cotizaciones</p>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Mensaje de cotización</label>
+            <textarea
+              name="whatsapp_message"
+              value={config.whatsapp_message}
+              onChange={handleChange}
+              rows={5}
+              className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-foreground/10 transition-all resize-none"
+              placeholder="Hola, quiero solicitar una cotización:"
+            />
+            <p className="text-xs text-muted mt-1.5">
+              Usa {'{productos}'} para la lista de productos y {'{total}'} para el total. Ejemplo:
+            </p>
+            <pre className="mt-2 p-3 bg-accent-light/50 rounded-lg text-xs text-muted whitespace-pre-wrap">
+{`Hola, me interesa cotizar:
+
+{productos}
+
+Total: {total}
+
+Gracias.`}
+            </pre>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-border p-6 space-y-4">
