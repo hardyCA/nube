@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { useCarrito } from '@/hooks/useCarrito'
 import { supabase } from '@/lib/supabase'
+import { parsearDescripcion } from '@/lib/utils'
 
 export default function ProductoPage() {
   const params = useParams()
@@ -172,9 +173,10 @@ export default function ProductoPage() {
               )}
 
               {producto.descripcion && (
-                <div className="text-sm text-muted leading-relaxed mb-6 sm:mb-8 whitespace-pre-line">
-                  {producto.descripcion}
-                </div>
+                <div
+                  className="text-sm text-muted leading-relaxed mb-6 sm:mb-8"
+                  dangerouslySetInnerHTML={{ __html: parsearDescripcion(producto.descripcion) }}
+                />
               )}
 
               <div className="mt-auto space-y-4">

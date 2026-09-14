@@ -213,6 +213,9 @@ export default function ProductoFormPage() {
             rows={4}
             placeholder="Descripción detallada del producto"
           />
+          <p className="text-xs text-muted">
+            Soporta: **negrita**, *cursiva*, saltos de línea y emojis
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-border p-6 space-y-4">

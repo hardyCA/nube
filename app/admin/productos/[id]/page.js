@@ -177,6 +177,9 @@ export default function EditarProductoPage() {
           <Input label="Slug" name="slug" value={form.slug} onChange={handleChange} />
           <Textarea label="Descripción corta" name="descripcion_corta" value={form.descripcion_corta} onChange={handleChange} rows={2} />
           <Textarea label="Descripción completa" name="descripcion" value={form.descripcion} onChange={handleChange} rows={4} />
+          <p className="text-xs text-muted">
+            Soporta: **negrita**, *cursiva*, saltos de línea y emojis
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-border p-6 space-y-4">
