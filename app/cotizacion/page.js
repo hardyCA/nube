@@ -13,9 +13,9 @@ import { generarMensajeWhatsApp, enviarWhatsApp, formatearMoneda } from '@/lib/u
 export default function CotizacionPage() {
   const { items, total, actualizarCantidad, eliminarProducto, limpiarCarrito, cargando } = useCarrito()
   const [config, setConfig] = useState({ whatsapp_number: '', moneda: 'Bs', whatsapp_message: '' })
-  const [configCargada, setConfigCargada] = useState(false)
   const [eliminandoId, setEliminandoId] = useState(null)
   const [enviando, setEnviando] = useState(false)
+  const [errorWhatsApp, setErrorWhatsApp] = useState('')
 
   async function fetchConfig() {
     const { data } = await supabase
@@ -38,28 +38,39 @@ export default function CotizacionPage() {
 
   useEffect(() => {
     let activo = true
-    fetchConfig().then(newConfig => {
-      if (!activo) return
-      setConfig(prev => ({ ...prev, ...newConfig }))
-      setConfigCargada(true)
-    })
+    fetchConfig()
+      .then(newConfig => {
+        if (!activo) return
+        setConfig(prev => ({ ...prev, ...newConfig }))
+      })
+      .catch(() => {})
     return () => { activo = false }
   }, [])
 
   const handleEnviarWhatsApp = async () => {
     if (enviando) return
     setEnviando(true)
+    setErrorWhatsApp('')
     try {
       let cfg = config
-      if (!configCargada || !config.whatsapp_number) {
-        const fresh = await fetchConfig()
-        setConfig(prev => ({ ...prev, ...fresh }))
-        setConfigCargada(true)
+      if (!cfg.whatsapp_number) {
+        const fresh = await fetchConfig().catch(() => ({}))
         cfg = { ...config, ...fresh }
+        if (Object.keys(fresh).length > 0) {
+          setConfig(prev => ({ ...prev, ...fresh }))
+        }
       }
-      if (!cfg.whatsapp_number) return
+      if (!cfg.whatsapp_number) {
+        setErrorWhatsApp('No se pudo cargar el número de WhatsApp. Revisa tu conexión e intenta de nuevo.')
+        return
+      }
       const mensaje = generarMensajeWhatsApp(items, total, cfg)
-      enviarWhatsApp(mensaje, cfg.whatsapp_number)
+      const abriendo = enviarWhatsApp(mensaje, cfg.whatsapp_number)
+      if (!abriendo) {
+        setErrorWhatsApp('No se pudo abrir WhatsApp. Verifica el número en la configuración.')
+      }
+    } catch {
+      setErrorWhatsApp('Error al abrir WhatsApp. Intenta de nuevo.')
     } finally {
       setEnviando(false)
     }
@@ -208,7 +219,7 @@ export default function CotizacionPage() {
 
                   <button
                     onClick={handleEnviarWhatsApp}
-                    disabled={!configCargada || enviando}
+                    disabled={enviando}
                     className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {enviando ? (
@@ -223,6 +234,10 @@ export default function CotizacionPage() {
                       </>
                     )}
                   </button>
+
+                  {errorWhatsApp && (
+                    <p className="text-[11px] text-red-600 text-center mt-2">{errorWhatsApp}</p>
+                  )}
 
                   <p className="text-[11px] text-muted text-center mt-3">
                     Se abrirá WhatsApp con el detalle de tu cotización
