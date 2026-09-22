@@ -12,34 +12,57 @@ import { generarMensajeWhatsApp, enviarWhatsApp, formatearMoneda } from '@/lib/u
 
 export default function CotizacionPage() {
   const { items, total, actualizarCantidad, eliminarProducto, limpiarCarrito, cargando } = useCarrito()
-  const [config, setConfig] = useState({ whatsapp_number: '59170000000', moneda: 'Bs', whatsapp_message: '' })
+  const [config, setConfig] = useState({ whatsapp_number: '', moneda: 'Bs', whatsapp_message: '' })
+  const [configCargada, setConfigCargada] = useState(false)
   const [eliminandoId, setEliminandoId] = useState(null)
+  const [enviando, setEnviando] = useState(false)
+
+  async function fetchConfig() {
+    const { data } = await supabase
+      .from('configuracion')
+      .select('id, valor')
+      .in('id', ['whatsapp_number', 'moneda', 'whatsapp_message'])
+
+    const newConfig = {}
+    if (data) {
+      data.forEach(item => {
+        try {
+          newConfig[item.id] = JSON.parse(item.valor)
+        } catch {
+          newConfig[item.id] = item.valor
+        }
+      })
+    }
+    return newConfig
+  }
 
   useEffect(() => {
-    async function cargarConfig() {
-      const { data } = await supabase
-        .from('configuracion')
-        .select('id, valor')
-        .in('id', ['whatsapp_number', 'moneda', 'whatsapp_message'])
-
-      if (data) {
-        const newConfig = {}
-        data.forEach(item => {
-          try {
-            newConfig[item.id] = JSON.parse(item.valor)
-          } catch {
-            newConfig[item.id] = item.valor
-          }
-        })
-        setConfig(prev => ({ ...prev, ...newConfig }))
-      }
-    }
-    cargarConfig()
+    let activo = true
+    fetchConfig().then(newConfig => {
+      if (!activo) return
+      setConfig(prev => ({ ...prev, ...newConfig }))
+      setConfigCargada(true)
+    })
+    return () => { activo = false }
   }, [])
 
-  const handleEnviarWhatsApp = () => {
-    const mensaje = generarMensajeWhatsApp(items, total, config)
-    enviarWhatsApp(mensaje, config.whatsapp_number)
+  const handleEnviarWhatsApp = async () => {
+    if (enviando) return
+    setEnviando(true)
+    try {
+      let cfg = config
+      if (!configCargada || !config.whatsapp_number) {
+        const fresh = await fetchConfig()
+        setConfig(prev => ({ ...prev, ...fresh }))
+        setConfigCargada(true)
+        cfg = { ...config, ...fresh }
+      }
+      if (!cfg.whatsapp_number) return
+      const mensaje = generarMensajeWhatsApp(items, total, cfg)
+      enviarWhatsApp(mensaje, cfg.whatsapp_number)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const handleEliminar = (id) => {
@@ -185,10 +208,20 @@ export default function CotizacionPage() {
 
                   <button
                     onClick={handleEnviarWhatsApp}
-                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.98]"
+                    disabled={!configCargada || enviando}
+                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <MessageCircle className="h-4 w-4" />
-                    Cotizar por WhatsApp
+                    {enviando ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Abriendo...
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle className="h-4 w-4" />
+                        Cotizar por WhatsApp
+                      </>
+                    )}
                   </button>
 
                   <p className="text-[11px] text-muted text-center mt-3">
