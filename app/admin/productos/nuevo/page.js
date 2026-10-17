@@ -9,6 +9,8 @@ import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Select from '@/components/ui/Select'
 import { generarSlug } from '@/lib/utils'
+import { subirImagenOptimizada, eliminarImagenesDeStorage } from '@/lib/imageUtils'
+import { revalidarCatalogo } from '@/lib/revalidar'
 
 export default function ProductoFormPage() {
   const router = useRouter()
@@ -38,7 +40,7 @@ export default function ProductoFormPage() {
 
   useEffect(() => {
     async function cargarDatos() {
-      const { data: cats } = await supabase.from('categorias').select('*').order('nombre')
+      const { data: cats } = await supabase.from('categorias').select('id, nombre').order('nombre')
       setCategorias(cats || [])
 
       if (esEdicion) {
@@ -80,18 +82,23 @@ export default function ProductoFormPage() {
     if (!file) return
 
     setSubiendo(true)
-    const fileName = `${Date.now()}-${file.name}`
-    const { data, error } = await supabase.storage
-      .from('productos')
-      .upload(fileName, file)
+    const anteriorUrl = form.imagen_url
+    const { publicUrl, error: uploadError } = await subirImagenOptimizada(supabase, file)
 
-    if (!error) {
-      const { data: { publicUrl } } = supabase.storage
-        .from('productos')
-        .getPublicUrl(fileName)
+    if (!uploadError && publicUrl) {
+      if (anteriorUrl) {
+        await eliminarImagenesDeStorage(supabase, anteriorUrl)
+      }
       setForm(prev => ({ ...prev, imagen_url: publicUrl }))
     }
     setSubiendo(false)
+  }
+
+  const handleEliminarImagenPrincipal = async () => {
+    if (form.imagen_url) {
+      await eliminarImagenesDeStorage(supabase, form.imagen_url)
+    }
+    setForm(prev => ({ ...prev, imagen_url: '' }))
   }
 
   const handleGaleria = async (e) => {
@@ -102,10 +109,8 @@ export default function ProductoFormPage() {
     const newUrls = []
 
     for (const file of files) {
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`
-      const { error } = await supabase.storage.from('productos').upload(fileName, file)
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('productos').getPublicUrl(fileName)
+      const { publicUrl, error: uploadError } = await subirImagenOptimizada(supabase, file)
+      if (!uploadError && publicUrl) {
         newUrls.push(publicUrl)
       }
     }
@@ -116,7 +121,11 @@ export default function ProductoFormPage() {
     setSubiendo(false)
   }
 
-  const removeGaleria = (index) => {
+  const removeGaleria = async (index) => {
+    const urlEliminar = form.galeria[index]
+    if (urlEliminar) {
+      await eliminarImagenesDeStorage(supabase, urlEliminar)
+    }
     setForm(prev => ({ ...prev, galeria: prev.galeria.filter((_, i) => i !== index) }))
   }
 
@@ -153,6 +162,7 @@ export default function ProductoFormPage() {
       setError('Error al guardar el producto. Verifica los datos.')
       setGuardando(false)
     } else {
+      await revalidarCatalogo()
       router.push('/admin/productos')
     }
   }
@@ -311,7 +321,7 @@ export default function ProductoFormPage() {
               {form.imagen_url && (
                 <button
                   type="button"
-                  onClick={() => setForm(prev => ({ ...prev, imagen_url: '' }))}
+                  onClick={handleEliminarImagenPrincipal}
                   className="text-sm text-red-600 hover:underline"
                 >
                   Eliminar

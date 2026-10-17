@@ -7,6 +7,7 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
+import { revalidarCatalogo } from '@/lib/revalidar'
 
 export default function InventarioPage() {
   const [productos, setProductos] = useState([])
@@ -24,7 +25,7 @@ export default function InventarioPage() {
   async function cargarProductos() {
     const { data } = await supabase
       .from('productos')
-      .select('*, categorias(nombre)')
+      .select('id, nombre, stock, stock_minimo, unidad_medida, estado, categorias(nombre)')
       .in('estado', ['disponible', 'agotado'])
       .order('stock')
 
@@ -50,6 +51,7 @@ export default function InventarioPage() {
     setModalStock(null)
     setNuevoStock('')
     setGuardando(false)
+    await revalidarCatalogo()
   }
 
   const productosFiltrados = productos.filter(p => {

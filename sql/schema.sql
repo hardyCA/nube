@@ -190,6 +190,9 @@ CREATE POLICY "admin_all_venta_detalles" ON venta_detalles
 CREATE POLICY "admin_all_configuracion" ON configuracion
   FOR ALL USING (auth.role() = 'authenticated');
 
+CREATE POLICY "public_select_configuracion" ON configuracion
+  FOR SELECT USING (true);
+
 -- ============================================
 -- STORAGE
 -- ============================================

@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Modal from '@/components/ui/Modal'
 import { generarSlug } from '@/lib/utils'
+import { revalidarCatalogo } from '@/lib/revalidar'
 
 export default function CategoriasPage() {
   const [categorias, setCategorias] = useState([])
@@ -55,17 +56,25 @@ export default function CategoriasPage() {
       orden: parseInt(form.orden) || 0,
     }
 
+    let fallo = false
     if (editando) {
-      const { error } = await supabase.from('categorias').update(data).eq('id', editando.id)
-      if (error) setError('Error al actualizar')
+      const { error: err } = await supabase.from('categorias').update(data).eq('id', editando.id)
+      if (err) {
+        setError('Error al actualizar')
+        fallo = true
+      }
     } else {
-      const { error } = await supabase.from('categorias').insert(data)
-      if (error) setError('Error al crear la categoría')
+      const { error: err } = await supabase.from('categorias').insert(data)
+      if (err) {
+        setError('Error al crear la categoría')
+        fallo = true
+      }
     }
 
     setGuardando(false)
-    if (!error) {
+    if (!fallo) {
       setModalOpen(false)
+      await revalidarCatalogo()
       cargarCategorias()
     }
   }
@@ -74,12 +83,14 @@ export default function CategoriasPage() {
     if (!eliminando) return
     await supabase.from('categorias').delete().eq('id', eliminando.id)
     setEliminando(null)
+    await revalidarCatalogo()
     cargarCategorias()
   }
 
   async function toggleActiva(cat) {
     await supabase.from('categorias').update({ activa: !cat.activa }).eq('id', cat.id)
     setCategorias(prev => prev.map(c => c.id === cat.id ? { ...c, activa: !c.activa } : c))
+    await revalidarCatalogo()
   }
 
   return (

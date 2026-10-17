@@ -5,6 +5,7 @@ import { Save, Loader2, Settings } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { revalidarCatalogo } from '@/lib/revalidar'
 
 export default function ConfiguracionPage() {
   const [config, setConfig] = useState({
@@ -58,18 +59,17 @@ export default function ConfiguracionPage() {
       { id: 'whatsapp_message', valor: JSON.stringify(config.whatsapp_message || 'Hola, quiero solicitar una cotización:\n\n{productos}\nTotal estimado: {total}\n\nQuedo atento/a.'), descripcion: 'Mensaje de WhatsApp para cotizaciones' },
     ]
 
-    for (const item of updates) {
-      const { error: upsertError } = await supabase
-        .from('configuracion')
-        .upsert(item, { onConflict: 'id' })
+    const { error: upsertError } = await supabase
+      .from('configuracion')
+      .upsert(updates, { onConflict: 'id' })
 
-      if (upsertError) {
-        setError('Error al guardar la configuración.')
-        setGuardando(false)
-        return
-      }
+    if (upsertError) {
+      setError('Error al guardar la configuración.')
+      setGuardando(false)
+      return
     }
 
+    await revalidarCatalogo()
     setExito(true)
     setGuardando(false)
     setTimeout(() => setExito(false), 3000)

@@ -1,39 +1,19 @@
-'use client'
-
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, ShoppingBag, Truck, Shield, Clock } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
-import { supabase } from '@/lib/supabase'
+import { getCategoriasActivas, getProductosCatalogo } from '@/lib/catalogoCache'
 
-export default function Home() {
-  const [productos, setProductos] = useState([])
-  const [categorias, setCategorias] = useState([])
-  const [cargando, setCargando] = useState(true)
+export default async function Home() {
+  const [categorias, todosLosProductos] = await Promise.all([
+    getCategoriasActivas(),
+    getProductosCatalogo(),
+  ])
 
-  useEffect(() => {
-    async function cargarDatos() {
-      const { data: cats } = await supabase
-        .from('categorias')
-        .select('*')
-        .eq('activa', true)
-        .order('orden')
-
-      const { data: prods } = await supabase
-        .from('productos')
-        .select('*, categorias(nombre, slug)')
-        .eq('estado', 'disponible')
-        .eq('destacado', true)
-        .order('created_at', { ascending: false })
-        .limit(8)
-
-      setCategorias(cats || [])
-      setProductos(prods || [])
-      setCargando(false)
-    }
-    cargarDatos()
-  }, [])
+  const productos = todosLosProductos
+    .filter((p) => p.estado === 'disponible' && p.destacado)
+    .slice(0, 8)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -142,20 +122,7 @@ export default function Home() {
               </Link>
             </div>
 
-            {cargando ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-border overflow-hidden animate-pulse">
-                    <div className="aspect-[4/3] bg-accent-light" />
-                    <div className="p-3 sm:p-4 space-y-2.5">
-                      <div className="h-3 bg-accent-light rounded w-1/3" />
-                      <div className="h-4 bg-accent-light rounded w-3/4" />
-                      <div className="h-5 bg-accent-light rounded w-1/3" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : productos.length > 0 ? (
+            {productos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
                 {productos.map((producto) => (
                   <Link
@@ -165,11 +132,12 @@ export default function Home() {
                   >
                     <div className="aspect-[4/3] bg-accent-light relative overflow-hidden">
                       {producto.imagen_url ? (
-                        <img
+                        <Image
                           src={producto.imagen_url}
                           alt={producto.nombre}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

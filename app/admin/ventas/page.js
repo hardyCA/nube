@@ -12,6 +12,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import { formatearFecha, formatearFechaCorta } from '@/lib/utils'
+import { revalidarCatalogo } from '@/lib/revalidar'
 
 export default function VentasPage() {
   const [pestana, setPestana] = useState('ventas')
@@ -43,7 +44,7 @@ export default function VentasPage() {
   async function cargarDatos() {
     const [ventasResult, productosResult, clientesResult] = await Promise.all([
       supabase.from('ventas').select('*').order('created_at', { ascending: false }),
-      supabase.from('productos').select('*').eq('estado', 'disponible').gt('stock', 0).order('nombre'),
+      supabase.from('productos').select('id, nombre, precio, stock, imagen_url, estado').eq('estado', 'disponible').gt('stock', 0).order('nombre'),
       supabase.from('clientes').select('*').order('nombre'),
     ])
     setVentas(ventasResult.data || [])
@@ -94,6 +95,7 @@ export default function VentasPage() {
       setNotas('')
       setBusquedaProducto('')
       setNuevaVenta(false)
+      await revalidarCatalogo()
       cargarDatos()
     }
     setGuardando(false)
@@ -102,6 +104,7 @@ export default function VentasPage() {
   async function handleCambiarEstado(ventaId, nuevoEstado) {
     setCambiandoEstado(ventaId)
     await supabase.from('ventas').update({ estado: nuevoEstado }).eq('id', ventaId)
+    await revalidarCatalogo()
     cargarDatos()
     setCambiandoEstado(null)
     if (ventaDetalle?.id === ventaId) setVentaDetalle(prev => ({ ...prev, estado: nuevoEstado }))

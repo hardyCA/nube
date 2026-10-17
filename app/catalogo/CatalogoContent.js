@@ -1,127 +1,61 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react'
+import { Search, X, SlidersHorizontal } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import ProductoCard from '@/components/catalogo/ProductoCard'
-import { supabase } from '@/lib/supabase'
 
-const ITEMS_PER_PAGE = 12
-
-export default function CatalogoContent() {
+export default function CatalogoContent({
+  productosIniciales = [],
+  categoriasIniciales = [],
+}) {
   const searchParams = useSearchParams()
-  const categoriaInicial = searchParams.get('categoria') || ''
+  const categoriaUrl = searchParams.get('categoria') || ''
 
-  const [productos, setProductos] = useState([])
-  const [categorias, setCategorias] = useState([])
-  const [categoriaActiva, setCategoriaActiva] = useState(categoriaInicial)
+  const [categoriaActiva, setCategoriaActiva] = useState(categoriaUrl)
   const [busqueda, setBusqueda] = useState('')
-  const [cargando, setCargando] = useState(true)
-  const [cargandoMas, setCargandoMas] = useState(false)
-  const [page, setPage] = useState(0)
-  const [tieneMas, setTieneMas] = useState(true)
-  const [totalProductos, setTotalProductos] = useState(0)
+  const [ordenPrecio, setOrdenPrecio] = useState('recientes')
   const [filtrosOpen, setFiltrosOpen] = useState(false)
-  const observerRef = useRef(null)
-  const loadMoreRef = useRef(null)
 
   useEffect(() => {
-    async function cargarCategorias() {
-      const { data } = await supabase
-        .from('categorias')
-        .select('*')
-        .eq('activa', true)
-        .order('orden')
-      setCategorias(data || [])
-    }
-    cargarCategorias()
-  }, [])
+    setCategoriaActiva(categoriaUrl)
+  }, [categoriaUrl])
 
-  const cargarProductos = useCallback(async (reset = false) => {
-    const currentPage = reset ? 0 : page
-    const from = currentPage * ITEMS_PER_PAGE
-    const to = from + ITEMS_PER_PAGE - 1
+  // Filtrado y búsqueda 100% en memoria (0 consultas a Supabase por tecla o filtro)
+  const productosFiltrados = useMemo(() => {
+    const termino = busqueda.trim().toLowerCase()
 
-    if (reset) {
-      setCargando(true)
-      setProductos([])
-      setPage(0)
-      setTieneMas(true)
-    } else {
-      setCargandoMas(true)
-    }
-
-    let query = supabase
-      .from('productos')
-      .select('*, categorias(nombre, slug)', { count: 'exact' })
-      .in('estado', ['disponible', 'agotado'])
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
-    if (categoriaActiva) {
-      const { data: cat } = await supabase
-        .from('categorias')
-        .select('id')
-        .eq('slug', categoriaActiva)
-        .single()
-
-      if (cat) {
-        query = query.eq('categoria_id', cat.id)
+    const filtrados = productosIniciales.filter((p) => {
+      if (categoriaActiva) {
+        const slugCat = p.categorias?.slug || ''
+        if (slugCat !== categoriaActiva) return false
       }
+
+      if (termino) {
+        const enNombre = p.nombre?.toLowerCase().includes(termino)
+        const enDescCorta = p.descripcion_corta?.toLowerCase().includes(termino)
+        const enCategoria = p.categorias?.nombre?.toLowerCase().includes(termino)
+        if (!enNombre && !enDescCorta && !enCategoria) return false
+      }
+
+      return true
+    })
+
+    if (ordenPrecio === 'menor') {
+      return [...filtrados].sort(
+        (a, b) => Number(a.precio_oferta || a.precio) - Number(b.precio_oferta || b.precio)
+      )
+    }
+    if (ordenPrecio === 'mayor') {
+      return [...filtrados].sort(
+        (a, b) => Number(b.precio_oferta || b.precio) - Number(a.precio_oferta || a.precio)
+      )
     }
 
-    if (busqueda) {
-      query = query.ilike('nombre', `%${busqueda}%`)
-    }
-
-    const { data, count } = await query
-
-    if (reset) {
-      setProductos(data || [])
-    } else {
-      setProductos(prev => [...prev, ...(data || [])])
-    }
-
-    setTotalProductos(count || 0)
-    setTieneMas((data?.length || 0) === ITEMS_PER_PAGE)
-    setCargando(false)
-    setCargandoMas(false)
-  }, [categoriaActiva, busqueda, page])
-
-  useEffect(() => {
-    cargarProductos(true)
-  }, [categoriaActiva, busqueda])
-
-  useEffect(() => {
-    if (page > 0) {
-      cargarProductos(false)
-    }
-  }, [page])
-
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect()
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && tieneMas && !cargando && !cargandoMas) {
-          setPage(prev => prev + 1)
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current)
-    }
-
-    return () => observerRef.current?.disconnect()
-  }, [tieneMas, cargando, cargandoMas])
-
-  const handleBusqueda = (e) => {
-    setBusqueda(e.target.value)
-  }
+    return filtrados
+  }, [productosIniciales, categoriaActiva, busqueda, ordenPrecio])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -136,37 +70,49 @@ export default function CatalogoContent() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="flex gap-3 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar productos..."
-                value={busqueda}
-                onChange={handleBusqueda}
-                className="w-full h-11 sm:h-12 pl-10 pr-10 rounded-xl border border-border bg-white text-foreground text-sm placeholder:text-muted transition-all focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20"
-              />
-              {busqueda && (
-                <button
-                  onClick={() => setBusqueda('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/[0.05] transition-colors"
-                >
-                  <X className="h-4 w-4 text-muted" />
-                </button>
-              )}
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="flex gap-3 flex-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar por modelo, procesador, RAM..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="w-full h-11 sm:h-12 pl-10 pr-10 rounded-xl border border-border bg-white text-foreground text-sm placeholder:text-muted transition-all focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20"
+                />
+                {busqueda && (
+                  <button
+                    onClick={() => setBusqueda('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/[0.05] transition-colors"
+                  >
+                    <X className="h-4 w-4 text-muted" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setFiltrosOpen(!filtrosOpen)}
+                className={`sm:hidden h-11 px-4 rounded-xl border flex items-center justify-center gap-2 text-sm font-medium transition-colors shrink-0 ${
+                  filtrosOpen || categoriaActiva
+                    ? 'border-foreground bg-foreground text-white'
+                    : 'border-border bg-white text-muted'
+                }`}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Filtros
+              </button>
             </div>
 
-            <button
-              onClick={() => setFiltrosOpen(!filtrosOpen)}
-              className={`sm:hidden h-11 sm:h-12 px-4 rounded-xl border flex items-center justify-center gap-2 text-sm font-medium transition-colors shrink-0 ${
-                filtrosOpen || categoriaActiva
-                  ? 'border-foreground bg-foreground text-white'
-                  : 'border-border bg-white text-muted'
-              }`}
+            <select
+              value={ordenPrecio}
+              onChange={(e) => setOrdenPrecio(e.target.value)}
+              className="h-11 sm:h-12 px-3.5 rounded-xl border border-border bg-white text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 transition-all"
             >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filtros
-            </button>
+              <option value="recientes">Más recientes</option>
+              <option value="menor">Precio: menor a mayor</option>
+              <option value="mayor">Precio: mayor a menor</option>
+            </select>
           </div>
 
           <div className={`flex flex-wrap gap-2 mb-6 sm:mb-8 ${filtrosOpen ? '' : 'hidden sm:flex'}`}>
@@ -178,9 +124,9 @@ export default function CatalogoContent() {
                   : 'bg-accent-light text-muted hover:text-foreground'
               }`}
             >
-              Todos
+              Todos ({productosIniciales.length})
             </button>
-            {categorias.map((cat) => (
+            {categoriasIniciales.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setCategoriaActiva(cat.slug)}
@@ -195,48 +141,15 @@ export default function CatalogoContent() {
             ))}
           </div>
 
-          {cargando ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-border overflow-hidden animate-pulse">
-                  <div className="aspect-[4/3] bg-accent-light" />
-                  <div className="p-3 sm:p-4 space-y-2.5">
-                    <div className="h-2.5 bg-accent-light rounded w-1/3" />
-                    <div className="h-3.5 bg-accent-light rounded w-3/4" />
-                    <div className="h-5 bg-accent-light rounded w-1/3" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : productos.length > 0 ? (
+          {productosFiltrados.length > 0 ? (
             <>
               <p className="text-xs text-muted mb-4">
-                {totalProductos} producto{totalProductos !== 1 ? 's' : ''}
+                {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''}
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-                {productos.map((producto) => (
+                {productosFiltrados.map((producto) => (
                   <ProductoCard key={producto.id} producto={producto} />
                 ))}
-              </div>
-
-              <div ref={loadMoreRef} className="py-8">
-                {cargandoMas && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="bg-white rounded-2xl border border-border overflow-hidden animate-pulse">
-                        <div className="aspect-[4/3] bg-accent-light" />
-                        <div className="p-3 sm:p-4 space-y-2.5">
-                          <div className="h-2.5 bg-accent-light rounded w-1/3" />
-                          <div className="h-3.5 bg-accent-light rounded w-3/4" />
-                          <div className="h-5 bg-accent-light rounded w-1/3" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!tieneMas && productos.length > ITEMS_PER_PAGE && (
-                  <p className="text-center text-sm text-muted">Mostrando todos los productos</p>
-                )}
               </div>
             </>
           ) : (

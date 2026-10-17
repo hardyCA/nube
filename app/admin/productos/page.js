@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
+import { eliminarImagenesDeStorage, vaciarTodasLasImagenes } from '@/lib/imageUtils'
+import { revalidarCatalogo } from '@/lib/revalidar'
 
 export default function ProductosPage() {
   const [productos, setProductos] = useState([])
@@ -16,6 +18,9 @@ export default function ProductosPage() {
   const [filtroEstado, setFiltroEstado] = useState('')
   const [cargando, setCargando] = useState(true)
   const [productoEliminar, setProductoEliminar] = useState(null)
+  const [modalVaciarImagenes, setModalVaciarImagenes] = useState(false)
+  const [vaciandoImagenes, setVaciandoImagenes] = useState(false)
+  const [mensajeLimpieza, setMensajeLimpieza] = useState('')
   const [menuAbierto, setMenuAbierto] = useState(null)
 
   useEffect(() => {
@@ -23,23 +28,45 @@ export default function ProductosPage() {
   }, [])
 
   async function cargarDatos() {
-    const { data: cats } = await supabase.from('categorias').select('*').order('nombre')
+    const [{ data: cats }, { data: prods }] = await Promise.all([
+      supabase.from('categorias').select('id, nombre').order('nombre'),
+      supabase
+        .from('productos')
+        .select('id, nombre, precio, precio_oferta, stock, estado, destacado, categoria_id, imagen_url, galeria, categorias(nombre)')
+        .order('created_at', { ascending: false }),
+    ])
+
     setCategorias(cats || [])
-
-    const { data: prods } = await supabase
-      .from('productos')
-      .select('*, categorias(nombre)')
-      .order('created_at', { ascending: false })
-
     setProductos(prods || [])
     setCargando(false)
   }
 
+  async function handleVaciarImagenes() {
+    setVaciandoImagenes(true)
+    setMensajeLimpieza('')
+    const { totalArchivosBorrados } = await vaciarTodasLasImagenes(supabase, productos)
+    setProductos(prev => prev.map(p => ({ ...p, imagen_url: '', galeria: [] })))
+    await revalidarCatalogo()
+    setVaciandoImagenes(false)
+    setModalVaciarImagenes(false)
+    setMensajeLimpieza(`¡Listo! Se eliminaron ${totalArchivosBorrados} imágenes pesadas de Supabase Storage y se limpiaron los productos.`)
+  }
+
   async function handleEliminar() {
     if (!productoEliminar) return
+    const urlsParaBorrar = [
+      productoEliminar.imagen_url,
+      ...(Array.isArray(productoEliminar.galeria) ? productoEliminar.galeria : []),
+    ].filter(Boolean)
+
+    if (urlsParaBorrar.length > 0) {
+      await eliminarImagenesDeStorage(supabase, urlsParaBorrar)
+    }
+
     await supabase.from('productos').delete().eq('id', productoEliminar.id)
     setProductos(prev => prev.filter(p => p.id !== productoEliminar.id))
     setProductoEliminar(null)
+    await revalidarCatalogo()
   }
 
   async function toggleDestacado(producto) {
@@ -51,6 +78,7 @@ export default function ProductosPage() {
     setProductos(prev =>
       prev.map(p => p.id === producto.id ? { ...p, destacado: !p.destacado } : p)
     )
+    await revalidarCatalogo()
   }
 
   const productosFiltrados = productos.filter(p => {
@@ -67,13 +95,32 @@ export default function ProductosPage() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Productos</h1>
           <p className="text-muted text-sm mt-1">{productos.length} productos</p>
         </div>
-        <Link href="/admin/productos/nuevo">
-          <Button className="w-full sm:w-auto">
-            <Plus className="h-4 w-4" />
-            Nuevo producto
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setModalVaciarImagenes(true)}
+            className="w-full sm:w-auto text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Vaciar imágenes de Supabase
           </Button>
-        </Link>
+          <Link href="/admin/productos/nuevo">
+            <Button className="w-full sm:w-auto">
+              <Plus className="h-4 w-4" />
+              Nuevo producto
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {mensajeLimpieza && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl flex items-center justify-between gap-3">
+          <span>{mensajeLimpieza}</span>
+          <button onClick={() => setMensajeLimpieza('')} className="text-xs font-medium underline shrink-0">
+            Cerrar
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2.5">
         <div className="relative flex-1">
@@ -315,6 +362,35 @@ export default function ProductosPage() {
           </Button>
           <Button variant="danger" onClick={handleEliminar}>
             Eliminar
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={modalVaciarImagenes}
+        onClose={() => !vaciandoImagenes && setModalVaciarImagenes(false)}
+        title="Vaciar todas las imágenes de Supabase"
+      >
+        <p className="text-sm text-muted mb-3">
+          Esto eliminará <strong>todos los archivos de imágenes (incluyendo los ~181 archivos antiguos)</strong> guardados en el Storage de Supabase y dejará tus productos listos sin fotos para que puedas subir las nuevas imágenes optimizadas en WebP.
+        </p>
+        <p className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl mb-6">
+          Los nombres, precios, stock y descripciones de tus laptops <strong>NO se borrarán</strong>, únicamente sus imágenes.
+        </p>
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => setModalVaciarImagenes(false)}
+            disabled={vaciandoImagenes}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleVaciarImagenes}
+            loading={vaciandoImagenes}
+          >
+            Sí, borrar todas las imágenes
           </Button>
         </div>
       </Modal>

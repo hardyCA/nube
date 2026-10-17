@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { ShoppingBag, Check } from 'lucide-react'
+import Image from 'next/image'
+import { ShoppingBag } from 'lucide-react'
 import { useCarrito } from '@/hooks/useCarrito'
 
 export default function ProductoCard({ producto }) {
@@ -25,11 +26,12 @@ export default function ProductoCard({ producto }) {
     >
       <div className="aspect-[4/3] bg-accent-light relative overflow-hidden">
         {producto.imagen_url ? (
-          <img
+          <Image
             src={producto.imagen_url}
             alt={producto.nombre}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -56,9 +58,12 @@ export default function ProductoCard({ producto }) {
         {producto.categorias && (
           <p className="text-[11px] text-muted mb-1 uppercase tracking-wider">{producto.categorias.nombre}</p>
         )}
-        <h3 className="text-sm font-medium text-foreground mb-2 line-clamp-1">
+        <h3 className="text-sm font-medium text-foreground mb-1 line-clamp-1">
           {producto.nombre}
         </h3>
+        {producto.descripcion_corta && (
+          <p className="text-xs text-muted line-clamp-1 mb-2">{producto.descripcion_corta}</p>
+        )}
 
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
